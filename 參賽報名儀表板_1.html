@@ -101,8 +101,8 @@
 
 <header>
   <div>
-    <h1>🏆 參賽報名管理儀表板</h1>
-    <div class="subtitle">Taiwan Healthcare Innovation Award · 即時報名數據總覽</div>
+    <h1>🏆 新創獎徵件進度儀表板</h1>
+    <div class="subtitle">2026 National Innovation Award · 報名數據總覽</div>
   </div>
   <div class="last-updated" id="lastUpdated">讀取中...</div>
 </header>
@@ -134,7 +134,7 @@
         <div class="kpi-icon">🤝</div>
         <div class="kpi-body">
           <div class="kpi-value" id="kpiDev">–</div>
-          <div class="kpi-label">開發來源件數</div>
+          <div class="kpi-label">開發件數</div>
           <div class="kpi-badge badge-purple" id="kpiDevPct">–</div>
         </div>
       </div>
@@ -153,8 +153,8 @@
       <div class="card">
         <h3>👤 個人開發案件數（新 / 舊團隊）<span style="font-size:11px;font-weight:400;color:#a0aec0;margin-left:6px">💡 Hover 查看獎別明細</span></h3>
         <div class="legend-row">
-          <div class="legend-item"><div class="legend-dot" style="background:#2b6cb0"></div>新團隊</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#ed8936"></div>舊團隊</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#2b6cb0"></div>舊團隊</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ed8936"></div>新團隊</div>
           <span style="font-size:11px;color:#a0aec0">僅統計「開發」來源</span>
         </div>
         <canvas id="chartOwner"></canvas>
@@ -166,8 +166,8 @@
       <div class="card">
         <h3>🔬 參賽類別分布（新 / 舊團隊）</h3>
         <div class="legend-row">
-          <div class="legend-item"><div class="legend-dot" style="background:#2b6cb0"></div>新團隊</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#ed8936"></div>舊團隊</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#2b6cb0"></div>舊團隊</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ed8936"></div>新團隊</div>
         </div>
         <canvas id="chartCategory"></canvas>
       </div>
@@ -265,12 +265,13 @@ function processData(rows) {
 
   const total = rows.length;
 
-  // 每日申請
+  // 每日申請（處理 BOM 字元，動態找申請日期欄位）
+  const dateKey = Object.keys(rows[0] || {}).find(k => k.replace(/[\ufeff"]/g,'').trim() === '申請日期') || '申請日期';
   const dailyMap = {};
   rows.forEach(r => {
-    const raw = r['申請日期'] || r[Object.keys(r)[4]] || '';
+    const raw = r[dateKey] || '';
     const date = raw.toString().substring(0, 10);
-    if (date) dailyMap[date] = (dailyMap[date] || 0) + 1;
+    if (date && date.match(/^\d{4}-\d{2}-\d{2}/)) dailyMap[date] = (dailyMap[date] || 0) + 1;
   });
   const sortedDates = Object.keys(dailyMap).sort();
   const latestDate = sortedDates[sortedDates.length - 1] || '–';
@@ -362,10 +363,10 @@ function renderDashboard(d) {
   document.getElementById('kpiTotal').textContent = d.total;
   const diff = d.todayCount;
   document.getElementById('kpiDiff').textContent = diff > 0 ? `▲ 較前一天 +${diff} 件` : `今日無新增`;
-  document.getElementById('kpiNew').textContent = d.newCount;
-  document.getElementById('kpiNewPct').textContent = `佔全體 ${(d.newCount/d.total*100).toFixed(1)}%`;
-  document.getElementById('kpiDev').textContent = d.devCount;
-  document.getElementById('kpiDevPct').textContent = `佔全體 ${(d.devCount/d.total*100).toFixed(1)}%`;
+  document.getElementById('kpiNew').textContent = (d.newCount/d.total*100).toFixed(1) + '%';
+  document.getElementById('kpiNewPct').textContent = `實際件數 ${d.newCount} 件`;
+  document.getElementById('kpiDev').textContent = (d.devCount/d.total*100).toFixed(1) + '%';
+  document.getElementById('kpiDevPct').textContent = `實際件數 ${d.devCount} 件`;
   document.getElementById('lastUpdated').innerHTML = `資料更新：${d.latestDate}<br>開啟時自動讀取最新資料`;
   document.getElementById('trendNote').textContent = `資料範圍：${d.trendDates[0]} ～ ${d.latestDate}，累計 ${d.total} 件`;
 
@@ -396,8 +397,8 @@ function renderDashboard(d) {
     data: {
       labels: d.ownerNames,
       datasets: [
-        { label:'新團隊', data: d.ownerNew, backgroundColor:'#2b6cb0', borderRadius:3, stack:'s' },
-        { label:'舊團隊', data: d.ownerOld, backgroundColor: OLD_COLOR, borderRadius:3, stack:'s' }
+        { label:'舊團隊', data: d.ownerOld, backgroundColor:'#2b6cb0', borderRadius:3, stack:'s' },
+        { label:'新團隊', data: d.ownerNew, backgroundColor: OLD_COLOR, borderRadius:3, stack:'s' }
       ]
     },
     options: {
@@ -427,14 +428,14 @@ function renderDashboard(d) {
     }
   });
 
-  // 類別圖
+  // 類別圖（舊團隊在左/下，新團隊在右/上）
   new Chart(document.getElementById('chartCategory'), {
     type: 'bar',
     data: {
       labels: d.catLabels,
       datasets: [
-        { label:'新團隊', data: d.catNew, backgroundColor:'#2b6cb0', borderRadius:3, stack:'s' },
-        { label:'舊團隊', data: d.catOld, backgroundColor: OLD_COLOR, borderRadius:3, stack:'s' }
+        { label:'舊團隊', data: d.catOld, backgroundColor:'#2b6cb0', borderRadius:3, stack:'s' },
+        { label:'新團隊', data: d.catNew, backgroundColor: OLD_COLOR, borderRadius:3, stack:'s' }
       ]
     },
     options: {
