@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>參賽報名儀表板</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Microsoft JhengHei', 'Noto Sans TC', sans-serif; background: #f0f4f8; color: #2d3748; }
+
+  header {
+    background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+    color: white; padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+  header .subtitle { font-size: 13px; opacity: 0.75; margin-top: 4px; }
+  .last-updated { font-size: 12px; opacity: 0.65; text-align:right; }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+
+  /* Loading */
+  #loading {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 60vh; gap: 16px;
+  }
+  .spinner {
+    width: 48px; height: 48px; border: 5px solid #e2e8f0;
+    border-top-color: #3182ce; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading p { color: #718096; font-size: 15px; }
+  #error-msg {
+    display:none; background:#fff5f5; border:1px solid #feb2b2;
+    color:#c53030; border-radius:8px; padding:16px 20px;
+    margin:20px 0; font-size:14px; line-height:1.6;
+  }
+
+  /* KPI */
+  .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card {
+    background: white; border-radius: 12px; padding: 22px 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    border-top: 4px solid #3182ce;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .kpi-card.green  { border-top-color: #38a169; }
+  .kpi-card.purple { border-top-color: #805ad5; }
+  .kpi-icon  { font-size: 32px; line-height: 1; }
+  .kpi-body  { flex: 1; }
+  .kpi-value { font-size: 38px; font-weight: 800; color: #2d3748; line-height: 1; }
+  .kpi-label { font-size: 13px; color: #718096; margin-top: 5px; font-weight: 500; }
+  .kpi-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 700;
+    border-radius: 20px; padding: 3px 10px; margin-top: 6px; border: 1px solid;
+  }
+  .badge-green  { background:#f0fff4; color:#276749; border-color:#c6f6d5; }
+  .badge-blue   { background:#ebf8ff; color:#2c5282; border-color:#bee3f8; }
+  .badge-purple { background:#faf5ff; color:#553c9a; border-color:#d6bcfa; }
+
+  /* Charts */
+  .chart-grid { display: grid; gap: 20px; }
+  .row-2 { grid-template-columns: 1fr 1fr; }
+  .card {
+    background: white; border-radius: 12px;
+    padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  }
+  .card h3 {
+    font-size: 14px; font-weight: 700; color: #4a5568;
+    margin-bottom: 14px; padding-bottom: 10px;
+    border-bottom: 2px solid #e2e8f0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .legend-row { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #4a5568; }
+  .legend-dot  { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .note { font-size: 11px; color: #a0aec0; margin-top: 8px; text-align: right; }
+
+  #dashboard { display: none; }
+
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: repeat(3,1fr); }
+    .kpi-value { font-size: 26px; }
+    .row-2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .kpi-row { grid-template-columns: repeat(3,1fr); gap: 8px; }
+    .kpi-card { padding: 14px 10px; gap: 8px; }
+    .kpi-value { font-size: 20px; }
+    .kpi-icon { display: none; }
+    .kpi-badge { font-size: 10px; padding: 2px 6px; }
+    .kpi-label { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏆 參賽報名管理儀表板</h1>
+    <div class="subtitle">Taiwan Healthcare Innovation Award · 即時報名數據總覽</div>
+  </div>
+  <div class="last-updated" id="lastUpdated">讀取中...</div>
+</header>
+
+<div class="container">
+  <div id="error-msg"></div>
+  <div id="loading"><div class="spinner"></div><p>正在從雲端讀取最新資料...</p></div>
+
+  <div id="dashboard">
+    <!-- KPI -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-icon">📋</div>
+        <div class="kpi-body">
+          <div class="kpi-value" id="kpiTotal">–</div>
+          <div class="kpi-label">總報名件數</div>
+          <div class="kpi-badge badge-green" id="kpiDiff">–</div>
+        </div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-icon">🆕</div>
+        <div class="kpi-body">
+          <div class="kpi-value" id="kpiNew">–</div>
+          <div class="kpi-label">新團隊件數</div>
+          <div class="kpi-badge badge-blue" id="kpiNewPct">–</div>
+        </div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-icon">🤝</div>
+        <div class="kpi-body">
+          <div class="kpi-value" id="kpiDev">–</div>
+          <div class="kpi-label">開發來源件數</div>
+          <div class="kpi-badge badge-purple" id="kpiDevPct">–</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 1 -->
+    <div class="chart-grid row-2" style="margin-bottom:20px">
+      <div class="card">
+        <h3>🥇 各獎別件數（主動 / 開發）</h3>
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-dot" style="background:#2b6cb0"></div>主動</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f6ad55"></div>開發</div>
+        </div>
+        <canvas id="chartAward"></canvas>
+      </div>
+      <div class="card">
+        <h3>👤 個人開發案件數（新 / 舊團隊）<span style="font-size:11px;font-weight:400;color:#a0aec0;margin-left:6px">💡 Hover 查看獎別明細</span></h3>
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-dot" style="background:#2b6cb0"></div>新團隊</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ed8936"></div>舊團隊</div>
+          <span style="font-size:11px;color:#a0aec0">僅統計「開發」來源</span>
+        </div>
+        <canvas id="chartOwner"></canvas>
+      </div>
+    </div>
+
+    <!-- Row 2 -->
+    <div class="chart-grid row-2" style="margin-bottom:20px">
+      <div class="card">
+        <h3>🔬 參賽類別分布（新 / 舊團隊）</h3>
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-dot" style="background:#2b6cb0"></div>新團隊</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ed8936"></div>舊團隊</div>
+        </div>
+        <canvas id="chartCategory"></canvas>
+      </div>
+      <div class="card">
+        <h3>📈 每日申請件數趨勢</h3>
+        <canvas id="chartTrend"></canvas>
+        <div class="note" id="trendNote">–</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+Chart.defaults.font.family = "'Microsoft JhengHei', 'Noto Sans TC', sans-serif";
+Chart.defaults.font.size = 12;
+
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQfwvwLCgoXP-gMKYV7OxAKAShkhE2w2pgITd2DglS9kmiXQuHk52v-cNvJz1TiEWME53IDidbMYHI8/pub?gid=671829474&single=true&output=csv';
+
+const OLD_COLOR = '#ed8936';
+
+// ── 標籤工具函式 ──────────────────────────
+function labelHBarSegments(chart) {
+  const ctx = chart.ctx;
+  ctx.save();
+  ctx.font = '11px Microsoft JhengHei';
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  chart.data.datasets.forEach((ds, di) => {
+    chart.getDatasetMeta(di).data.forEach((bar, i) => {
+      const val = ds.data[i];
+      if (val > 0 && Math.abs(bar.x - bar.base) > 20)
+        ctx.fillText(val, (bar.x + bar.base) / 2, bar.y);
+    });
+  });
+  ctx.restore();
+}
+function labelHBarTotals(chart, totals) {
+  const ctx = chart.ctx;
+  ctx.save();
+  ctx.font = 'bold 12px Microsoft JhengHei';
+  ctx.fillStyle = '#2d3748';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  let lastMeta = null;
+  for (let d = chart.data.datasets.length - 1; d >= 0; d--) {
+    const m = chart.getDatasetMeta(d);
+    if (!m.hidden) { lastMeta = m; break; }
+  }
+  if (lastMeta) lastMeta.data.forEach((bar, i) => ctx.fillText(totals[i] + ' 件', bar.x + 6, bar.y));
+  ctx.restore();
+}
+function labelVBarSegments(chart) {
+  const ctx = chart.ctx;
+  ctx.save();
+  ctx.font = '11px Microsoft JhengHei';
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  chart.data.datasets.forEach((ds, di) => {
+    chart.getDatasetMeta(di).data.forEach((bar, i) => {
+      const val = ds.data[i];
+      if (val > 0 && Math.abs(bar.y - bar.base) > 16)
+        ctx.fillText(val, bar.x, (bar.y + bar.base) / 2);
+    });
+  });
+  ctx.restore();
+}
+function labelVBarTotals(chart, totals) {
+  const ctx = chart.ctx;
+  ctx.save();
+  ctx.font = 'bold 13px Microsoft JhengHei';
+  ctx.fillStyle = '#2d3748';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  let lastMeta = null;
+  for (let d = chart.data.datasets.length - 1; d >= 0; d--) {
+    const m = chart.getDatasetMeta(d);
+    if (!m.hidden) { lastMeta = m; break; }
+  }
+  if (lastMeta) lastMeta.data.forEach((bar, i) => {
+    if (totals[i] > 0) ctx.fillText(totals[i] + ' 件', bar.x, bar.y - 4);
+  });
+  ctx.restore();
+}
+
+// ── 主流程：讀 CSV → 計算 → 畫圖 ──────────
+function normalizeAward(a) {
+  return a ? a.trim().replace(/^學研新創$/, '學研新創獎') : '';
+}
+
+function processData(rows) {
+  // 過濾空行
+  rows = rows.filter(r => r['案號'] || r['參賽獎別'] || r['來源']);
+
+  const total = rows.length;
+
+  // 每日申請
+  const dailyMap = {};
+  rows.forEach(r => {
+    const raw = r['申請日期'] || r[Object.keys(r)[4]] || '';
+    const date = raw.toString().substring(0, 10);
+    if (date) dailyMap[date] = (dailyMap[date] || 0) + 1;
+  });
+  const sortedDates = Object.keys(dailyMap).sort();
+  const latestDate = sortedDates[sortedDates.length - 1] || '–';
+  const todayCount = dailyMap[latestDate] || 0;
+  const prevDate = sortedDates[sortedDates.length - 2];
+  const prevCount = prevDate ? dailyMap[prevDate] : 0;
+
+  // 屬性
+  const newCount = rows.filter(r => (r['屬性']||'').trim() === '新團隊').length;
+  const oldCount = total - newCount;
+
+  // 開發來源
+  const devRows = rows.filter(r => (r['來源']||'').trim().startsWith('開發'));
+  const devCount = devRows.length;
+
+  // 獎別 × 來源類型
+  const awardLabels = ['學研新創獎','臨床新創獎','企業新創獎','初創企業獎','國際新創獎','新創育成獎'];
+  const awardActive = {}, awardDev = {};
+  awardLabels.forEach(l => { awardActive[l] = 0; awardDev[l] = 0; });
+  rows.forEach(r => {
+    const award = normalizeAward(r['參賽獎別'] || '');
+    const src   = (r['來源']||'').trim();
+    if (awardLabels.includes(award)) {
+      if (src === '主動') awardActive[award]++;
+      else awardDev[award]++;
+    }
+  });
+
+  // 類別 × 屬性
+  const catMap = {};
+  rows.forEach(r => {
+    const cat  = (r['參賽類別']||'').trim();
+    const attr = (r['屬性']||'').trim();
+    if (!cat) return;
+    if (!catMap[cat]) catMap[cat] = { 新團隊: 0, 舊團隊: 0 };
+    if (attr === '新團隊') catMap[cat].新團隊++;
+    else catMap[cat].舊團隊++;
+  });
+  const catLabels = Object.keys(catMap).sort((a,b) =>
+    (catMap[b].新團隊 + catMap[b].舊團隊) - (catMap[a].新團隊 + catMap[a].舊團隊));
+
+  // 個人開發 × 屬性 × 獎別
+  const ownerMap = {};
+  devRows.forEach(r => {
+    const src   = (r['來源']||'').trim(); // 開發(柏翔) etc.
+    const match = src.match(/開發\((.+)\)/);
+    if (!match) return;
+    const name  = match[1];
+    const attr  = (r['屬性']||'').trim();
+    const award = normalizeAward(r['參賽獎別'] || '');
+    if (!ownerMap[name]) ownerMap[name] = { 新團隊: {}, 舊團隊: {} };
+    if (!ownerMap[name][attr][award]) ownerMap[name][attr][award] = 0;
+    ownerMap[name][attr][award]++;
+  });
+  const ownerNames = Object.keys(ownerMap).sort((a,b) => {
+    const ta = Object.values(ownerMap[a]).reduce((s,o) => s + Object.values(o).reduce((x,v)=>x+v,0), 0);
+    const tb = Object.values(ownerMap[b]).reduce((s,o) => s + Object.values(o).reduce((x,v)=>x+v,0), 0);
+    return tb - ta;
+  });
+  const ownerNew = ownerNames.map(n => Object.values(ownerMap[n].新團隊).reduce((s,v)=>s+v,0));
+  const ownerOld = ownerNames.map(n => Object.values(ownerMap[n].舊團隊).reduce((s,v)=>s+v,0));
+  const ownerTotals = ownerNames.map((n,i) => ownerNew[i] + ownerOld[i]);
+
+  // 趨勢累計
+  const cumul = sortedDates.reduce((acc, d, i) => {
+    acc.push((acc[i-1]||0) + dailyMap[d]);
+    return acc;
+  }, []);
+
+  return {
+    total, newCount, oldCount, devCount, latestDate, todayCount, prevCount,
+    awardLabels,
+    awardActive: awardLabels.map(l => awardActive[l]),
+    awardDev:    awardLabels.map(l => awardDev[l]),
+    awardTotals: awardLabels.map(l => awardActive[l] + awardDev[l]),
+    catLabels,
+    catNew: catLabels.map(l => catMap[l].新團隊),
+    catOld: catLabels.map(l => catMap[l].舊團隊),
+    catTotals: catLabels.map(l => catMap[l].新團隊 + catMap[l].舊團隊),
+    ownerNames, ownerNew, ownerOld, ownerTotals, ownerMap,
+    trendDates: sortedDates,
+    trendVals: sortedDates.map(d => dailyMap[d]),
+    cumul
+  };
+}
+
+function renderDashboard(d) {
+  // KPI
+  document.getElementById('kpiTotal').textContent = d.total;
+  const diff = d.todayCount;
+  document.getElementById('kpiDiff').textContent = diff > 0 ? `▲ 較前一天 +${diff} 件` : `今日無新增`;
+  document.getElementById('kpiNew').textContent = d.newCount;
+  document.getElementById('kpiNewPct').textContent = `佔全體 ${(d.newCount/d.total*100).toFixed(1)}%`;
+  document.getElementById('kpiDev').textContent = d.devCount;
+  document.getElementById('kpiDevPct').textContent = `佔全體 ${(d.devCount/d.total*100).toFixed(1)}%`;
+  document.getElementById('lastUpdated').innerHTML = `資料更新：${d.latestDate}<br>開啟時自動讀取最新資料`;
+  document.getElementById('trendNote').textContent = `資料範圍：${d.trendDates[0]} ～ ${d.latestDate}，累計 ${d.total} 件`;
+
+  // 獎別圖
+  new Chart(document.getElementById('chartAward'), {
+    type: 'bar',
+    data: {
+      labels: d.awardLabels,
+      datasets: [
+        { label:'主動', data: d.awardActive, backgroundColor:'#2b6cb0', borderRadius:3, stack:'s' },
+        { label:'開發', data: d.awardDev,    backgroundColor:'#f6ad55', borderRadius:3, stack:'s' }
+      ]
+    },
+    options: {
+      indexAxis:'y', responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} },
+      scales:{
+        x:{ stacked:true, grid:{color:'#f0f4f8'}, max: Math.max(...d.awardTotals) + 8 },
+        y:{ stacked:true, grid:{display:false} }
+      },
+      animation:{ onComplete: function(){ labelHBarSegments(this); labelHBarTotals(this, d.awardTotals); }}
+    }
+  });
+
+  // 個人開發圖
+  new Chart(document.getElementById('chartOwner'), {
+    type: 'bar',
+    data: {
+      labels: d.ownerNames,
+      datasets: [
+        { label:'新團隊', data: d.ownerNew, backgroundColor:'#2b6cb0', borderRadius:3, stack:'s' },
+        { label:'舊團隊', data: d.ownerOld, backgroundColor: OLD_COLOR, borderRadius:3, stack:'s' }
+      ]
+    },
+    options: {
+      responsive:true,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          mode:'index', intersect:false,
+          callbacks:{
+            title: items => `${items[0].label}　共 ${d.ownerTotals[items[0].dataIndex]} 件`,
+            label: item => {
+              const name = item.label;
+              const team = item.dataset.label;
+              const detail = d.ownerMap[name]?.[team] || {};
+              const entries = Object.entries(detail);
+              if (!entries.length) return null;
+              return [`【${team}】${item.raw} 件`, ...entries.map(([aw,cnt]) => `  　${aw}：${cnt} 件`)];
+            }
+          }
+        }
+      },
+      scales:{
+        x:{ stacked:true, grid:{display:false} },
+        y:{ stacked:true, grid:{color:'#f0f4f8'}, ticks:{stepSize:2}, max: Math.max(...d.ownerTotals) + 3 }
+      },
+      animation:{ onComplete: function(){ labelVBarSegments(this); labelVBarTotals(this, d.ownerTotals); }}
+    }
+  });
+
+  // 類別圖
+  new Chart(document.getElementById('chartCategory'), {
+    type: 'bar',
+    data: {
+      labels: d.catLabels,
+      datasets: [
+        { label:'新團隊', data: d.catNew, backgroundColor:'#2b6cb0', borderRadius:3, stack:'s' },
+        { label:'舊團隊', data: d.catOld, backgroundColor: OLD_COLOR, borderRadius:3, stack:'s' }
+      ]
+    },
+    options: {
+      indexAxis:'y', responsive:true,
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} },
+      scales:{
+        x:{ stacked:true, grid:{color:'#f0f4f8'}, ticks:{stepSize:2}, max: Math.max(...d.catTotals) + 4 },
+        y:{ stacked:true, grid:{display:false}, ticks:{font:{size:11}} }
+      },
+      animation:{ onComplete: function(){ labelHBarSegments(this); labelHBarTotals(this, d.catTotals); }}
+    }
+  });
+
+  // 趨勢圖
+  const trendShort = d.trendDates.map(dt => dt.substring(5).replace('-','/'));
+  new Chart(document.getElementById('chartTrend'), {
+    data: {
+      labels: trendShort,
+      datasets: [
+        { type:'bar',  label:'當日件數', data: d.trendVals, backgroundColor:'rgba(43,108,176,0.45)', borderRadius:3, yAxisID:'y' },
+        { type:'line', label:'累計件數', data: d.cumul, borderColor:'#e53e3e', backgroundColor:'transparent', borderWidth:2, pointRadius:2, tension:0.3, yAxisID:'y2' }
+      ]
+    },
+    options: {
+      responsive:true,
+      plugins:{ legend:{position:'bottom',labels:{boxWidth:12}}, tooltip:{mode:'index',intersect:false} },
+      scales:{
+        x:  { grid:{display:false}, ticks:{font:{size:10}} },
+        y:  { grid:{color:'#f0f4f8'}, title:{display:true,text:'當日'}, ticks:{stepSize:1}, min:0 },
+        y2: { position:'right', grid:{display:false}, title:{display:true,text:'累計'} }
+      }
+    }
+  });
+}
+
+function showError(msg) {
+  document.getElementById('loading').style.display = 'none';
+  const el = document.getElementById('error-msg');
+  el.style.display = 'block';
+  el.innerHTML = `⚠️ 無法讀取資料：${msg}<br><small>請確認 Google Drive 連結已設為「知道連結的人都可以檢視」，並重新整理頁面。</small>`;
+}
+
+// ── 讀取 CSV ──────────────────────────────
+Papa.parse(CSV_URL, {
+  download: true,
+  header: true,
+  skipEmptyLines: true,
+  complete: function(results) {
+    if (!results.data || results.data.length === 0) {
+      showError('CSV 檔案為空或格式錯誤');
+      return;
+    }
+    try {
+      const data = processData(results.data);
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      renderDashboard(data);
+    } catch(e) {
+      showError('資料處理失敗：' + e.message);
+    }
+  },
+  error: function(err) {
+    showError(err.message || '網路錯誤，無法下載 CSV');
+  }
+});
+</script>
+</body>
+</html>
