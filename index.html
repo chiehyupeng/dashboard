@@ -352,6 +352,7 @@ function processData(rows) {
 
   // 今年 vs 去年對比（L~Q 欄）
   const cmpLabels = [], cmp2026 = [], cmp2025 = [], cmpApp2026 = [], cmpApp2025 = [];
+  let cmpLatestDate = '';
   rows.forEach(r => {
     const dateVal = r['2026日期'] || '';
     if (!dateVal) return;
@@ -365,6 +366,8 @@ function processData(rows) {
     cmp2025.push(isNaN(n25reg) ? null : n25reg);
     cmpApp2026.push(isNaN(n26app) ? null : n26app);
     cmpApp2025.push(isNaN(n25app) ? null : n25app);
+    // 找最後一筆有2026報名或報數資料的日期
+    if (!isNaN(n26reg) || !isNaN(n26app)) cmpLatestDate = label;
   });
 
   return {
@@ -381,21 +384,30 @@ function processData(rows) {
     trendDates: sortedDates,
     trendVals: sortedDates.map(d => dailyMap[d]),
     cumul,
-    cmpLabels, cmp2026, cmp2025, cmpApp2026, cmpApp2025
+    cmpLabels, cmp2026, cmp2025, cmpApp2026, cmpApp2025, cmpLatestDate
   };
 }
 
 function renderDashboard(d) {
   // KPI
   document.getElementById('kpiTotal').textContent = d.total;
-  const diff = d.todayCount;
-  document.getElementById('kpiDiff').textContent = diff > 0 ? `▲ 較前一天 +${diff} 件` : `今日無新增`;
+  // 最新申請日期當天件數
+  const latestShort = d.latestDate ? d.latestDate.substring(5).replace('-','/') : '–';
+  document.getElementById('kpiDiff').textContent = d.todayCount > 0
+    ? `▲ ${latestShort} 新增 ${d.todayCount} 件`
+    : `最新：${latestShort} 無新增`;
   document.getElementById('kpiNew').textContent = (d.newCount/d.total*100).toFixed(1) + '%';
   document.getElementById('kpiNewPct').textContent = `實際件數 ${d.newCount} 件`;
   document.getElementById('kpiDev').textContent = (d.devCount/d.total*100).toFixed(1) + '%';
   document.getElementById('kpiDevPct').textContent = `實際件數 ${d.devCount} 件`;
-  const displayDate = csvLastModified || new Date().toLocaleDateString('zh-TW', {year:'numeric', month:'2-digit', day:'2-digit'});
-  document.getElementById('lastUpdated').innerHTML = `資料更新：${displayDate}<br>開啟時自動讀取最新資料`;
+  // 資料更新日期：取「2026報數報名最新日期」與「最新申請日期」較新者
+  const applyDate = d.latestDate || '';
+  const cmpDate   = d.cmpLatestDate || '';
+  // cmpLatestDate 格式如 "5/29"，轉成可比較的格式
+  const cmpDateFull = cmpDate ? '2026/' + cmpDate : '';
+  const applyDateFmt = applyDate.replace(/-/g, '/');
+  const newerDate = cmpDateFull >= applyDateFmt ? cmpDate : applyDate.substring(5).replace('-','/');
+  document.getElementById('lastUpdated').innerHTML = `資料更新：${newerDate || '–'}<br>開啟時自動讀取最新資料`;
 
   // 獎別圖
   new Chart(document.getElementById('chartAward'), {
