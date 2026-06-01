@@ -283,6 +283,7 @@ function processData(rows) {
     if (date && date.match(/^\d{4}-\d{2}-\d{2}/)) dailyMap[date] = (dailyMap[date] || 0) + 1;
   });
   const sortedDates = Object.keys(dailyMap).sort();
+  console.log('dailyMap 筆數:', sortedDates.length, '最新日期:', sortedDates[sortedDates.length-1]);
   const latestDate = sortedDates[sortedDates.length - 1] || '–';
   const todayCount = dailyMap[latestDate] || 0;
   const prevDate = sortedDates[sortedDates.length - 2];
@@ -401,13 +402,17 @@ function renderDashboard(d) {
   document.getElementById('kpiDev').textContent = (d.devCount/d.total*100).toFixed(1) + '%';
   document.getElementById('kpiDevPct').textContent = `實際件數 ${d.devCount} 件`;
   // 資料更新日期：取「2026報數報名最新日期」與「最新申請日期」較新者
-  const applyDate = d.latestDate || '';
-  const cmpDate   = d.cmpLatestDate || '';
-  // cmpLatestDate 格式如 "5/29"，轉成可比較的格式
-  const cmpDateFull = cmpDate ? '2026/' + cmpDate : '';
-  const applyDateFmt = applyDate.replace(/-/g, '/');
-  const newerDate = cmpDateFull >= applyDateFmt ? cmpDate : applyDate.substring(5).replace('-','/');
-  document.getElementById('lastUpdated').innerHTML = `資料更新：${newerDate || '–'}<br>開啟時自動讀取最新資料`;
+  const applyDate = d.latestDate || ''; // 格式：2026-05-29
+  // cmpLatestDate 格式："5/29" → 轉成 "2026-05-29" 再比較
+  let cmpDateISO = '';
+  if (d.cmpLatestDate) {
+    const parts = d.cmpLatestDate.split('/');
+    if (parts.length === 2)
+      cmpDateISO = `2026-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+  }
+  const newerISO = (cmpDateISO >= applyDate) ? cmpDateISO : applyDate;
+  const newerDisplay = newerISO ? newerISO.substring(5).replace('-','/') : '–';
+  document.getElementById('lastUpdated').innerHTML = `資料更新：${newerDisplay}<br>開啟時自動讀取最新資料`;
 
   // 獎別圖
   new Chart(document.getElementById('chartAward'), {
