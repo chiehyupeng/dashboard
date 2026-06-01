@@ -392,7 +392,6 @@ function renderDashboard(d) {
   document.getElementById('kpiDevPct').textContent = `實際件數 ${d.devCount} 件`;
   const displayDate = csvLastModified || new Date().toLocaleDateString('zh-TW', {year:'numeric', month:'2-digit', day:'2-digit'});
   document.getElementById('lastUpdated').innerHTML = `資料更新：${displayDate}<br>開啟時自動讀取最新資料`;
-  document.getElementById('trendNote').textContent = `資料範圍：${d.trendDates[0]} ～ ${d.latestDate}，累計 ${d.total} 件`;
 
   // 獎別圖
   new Chart(document.getElementById('chartAward'), {
