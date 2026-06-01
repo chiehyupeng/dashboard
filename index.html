@@ -184,7 +184,7 @@
 Chart.defaults.font.family = "'Microsoft JhengHei', 'Noto Sans TC', sans-serif";
 Chart.defaults.font.size = 12;
 
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQfwvwLCgoXP-gMKYV7OxAKAShkhE2w2pgITd2DglS9kmiXQuHk52v-cNvJz1TiEWME53IDidbMYHI8/pub?gid=671829474&single=true&output=csv';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQfwvwLCgoXP-gMKYV7OxAKAShkhE2w2pgITd2DglS9kmiXQuHk52v-cNvJz1TiEWME53IDidbMYHI8/pub?gid=0&single=true&output=csv';
 
 const OLD_COLOR = '#ed8936';
 
@@ -364,10 +364,10 @@ function renderDashboard(d) {
   const diff = d.todayCount;
   document.getElementById('kpiDiff').textContent = diff > 0 ? `▲ 較前一天 +${diff} 件` : `今日無新增`;
   document.getElementById('kpiNew').textContent = (d.newCount/d.total*100).toFixed(1) + '%';
-  document.getElementById('kpiNewPct').textContent = `${d.newCount} 件`;
+  document.getElementById('kpiNewPct').textContent = `實際件數 ${d.newCount} 件`;
   document.getElementById('kpiDev').textContent = (d.devCount/d.total*100).toFixed(1) + '%';
-  document.getElementById('kpiDevPct').textContent = `${d.devCount} 件`;
-  document.getElementById('lastUpdated').innerHTML = `資料更新：${d.latestDate}<br>`;
+  document.getElementById('kpiDevPct').textContent = `實際件數 ${d.devCount} 件`;
+  document.getElementById('lastUpdated').innerHTML = `資料更新：${d.latestDate}<br>開啟時自動讀取最新資料`;
   document.getElementById('trendNote').textContent = `資料範圍：${d.trendDates[0]} ～ ${d.latestDate}，累計 ${d.total} 件`;
 
   // 獎別圖
