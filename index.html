@@ -282,14 +282,18 @@ function processData(rows) {
   const dailyMap = {};
   rows.forEach(r => {
     const raw = (dateKey ? r[dateKey] : '') || '';
-    // 去掉前後引號、空白
     const str = raw.toString().trim().replace(/^["']+|["']+$/g, '').trim();
-    // 支援 2026-04-10、2026/4/10、2026/04/10 09:21 等格式
-    const match = str.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-    if (match) {
-      const date = `${match[1]}-${match[2].padStart(2,'0')}-${match[3].padStart(2,'0')}`;
-      dailyMap[date] = (dailyMap[date] || 0) + 1;
+    let date = '';
+    // 格式一：2026-04-10 或 2026/04/10
+    const m1 = str.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    // 格式二：4/10/2026 9:21（月/日/年）
+    const m2 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m1) {
+      date = `${m1[1]}-${m1[2].padStart(2,'0')}-${m1[3].padStart(2,'0')}`;
+    } else if (m2) {
+      date = `${m2[3]}-${m2[1].padStart(2,'0')}-${m2[2].padStart(2,'0')}`;
     }
+    if (date) dailyMap[date] = (dailyMap[date] || 0) + 1;
   });
   const sortedDates = Object.keys(dailyMap).sort();
   console.log('dailyMap 筆數:', sortedDates.length, '最新日期:', sortedDates[sortedDates.length-1]);
@@ -516,13 +520,13 @@ function renderDashboard(d) {
         {
           label: '2026 報名數',
           data: d.cmp2026,
-          borderColor: '#2b6cb0', backgroundColor: 'rgba(43,108,176,0.08)',
+          borderColor: '#ed8936', backgroundColor: 'rgba(237,137,54,0.08)',
           borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false
         },
         {
           label: '2025 報名數',
           data: d.cmp2025,
-          borderColor: '#ed8936', backgroundColor: 'rgba(237,137,54,0.08)',
+          borderColor: '#2b6cb0', backgroundColor: 'rgba(43,108,176,0.08)',
           borderWidth: 2, pointRadius: 3, tension: 0.3,
           borderDash: [5,4], fill: false
         }
