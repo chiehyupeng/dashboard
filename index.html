@@ -275,13 +275,20 @@ function processData(rows) {
   const total = rows.length;
 
   // 每日申請（處理 BOM 字元，動態找申請日期欄位）
-  const dateKey = Object.keys(rows[0] || {}).find(k => k.replace(/[\ufeff"'\s]/g,'') === '申請日期') || '';
+  const dateKey = Object.keys(rows[0] || {}).find(k => k.replace(/[\ufeff"'\\\s]/g,'') === '申請日期') || '';
   console.log('找到日期欄位:', JSON.stringify(dateKey));
+  // 測試第一筆日期值
+  if (dateKey) console.log('日期值樣本:', rows.slice(0,3).map(r => JSON.stringify(r[dateKey])));
   const dailyMap = {};
   rows.forEach(r => {
-    const raw = r[dateKey] || '';
-    const date = raw.toString().substring(0, 10);
-    if (date && date.match(/^\d{4}-\d{2}-\d{2}/)) dailyMap[date] = (dailyMap[date] || 0) + 1;
+    const raw = (dateKey ? r[dateKey] : '') || '';
+    const str = raw.toString().trim();
+    // 支援 "2026-04-10 09:21" 和 "2026/04/10" 兩種格式
+    const match = str.match(/^(\d{4})[-\/](\d{2})[-\/](\d{2})/);
+    if (match) {
+      const date = `${match[1]}-${match[2]}-${match[3]}`;
+      dailyMap[date] = (dailyMap[date] || 0) + 1;
+    }
   });
   const sortedDates = Object.keys(dailyMap).sort();
   console.log('dailyMap 筆數:', sortedDates.length, '最新日期:', sortedDates[sortedDates.length-1]);
