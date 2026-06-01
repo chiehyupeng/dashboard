@@ -172,9 +172,14 @@
         <canvas id="chartCategory"></canvas>
       </div>
       <div class="card">
-        <h3>📈 2026 vs 2025 同期報名數對比</h3>
+        <h3>📈 2026 vs 2025 同期對比
+          <span style="margin-left:auto;display:flex;gap:8px;">
+            <button id="btnReg" onclick="switchCmp('reg')" style="font-size:12px;padding:4px 14px;border-radius:20px;border:2px solid #2b6cb0;background:#2b6cb0;color:white;cursor:pointer;font-family:inherit;">報名數</button>
+            <button id="btnApp" onclick="switchCmp('app')" style="font-size:12px;padding:4px 14px;border-radius:20px;border:2px solid #2b6cb0;background:white;color:#2b6cb0;cursor:pointer;font-family:inherit;">報數</button>
+          </span>
+        </h3>
         <canvas id="chartTrend"></canvas>
-        <div class="note" id="trendNote">藍色實線：2026年累計報名數　橘色虛線：2025年同期累計報名數</div>
+        <div class="note">藍色實線：2026年　橘色虛線：2025年同期　Hover 查看同期差異</div>
       </div>
     </div>
   </div>
@@ -342,18 +347,20 @@ function processData(rows) {
   }, []);
 
   // 今年 vs 去年對比（L~Q 欄）
-  const cmpLabels = [], cmp2026 = [], cmp2025 = [];
+  const cmpLabels = [], cmp2026 = [], cmp2025 = [], cmpApp2026 = [], cmpApp2025 = [];
   rows.forEach(r => {
     const dateVal = r['2026日期'] || '';
-    const v26 = r['2026報名'];
-    const v25 = r['2025報名'];
     if (!dateVal) return;
     const label = dateVal.toString().trim();
-    const n26 = parseFloat(v26);
-    const n25 = parseFloat(v25);
+    const n26reg = parseFloat(r['2026報名']);
+    const n25reg = parseFloat(r['2025報名']);
+    const n26app = parseFloat(r['2026報數']);
+    const n25app = parseFloat(r['2025報數']);
     cmpLabels.push(label);
-    cmp2026.push(isNaN(n26) ? null : n26);
-    cmp2025.push(isNaN(n25) ? null : n25);
+    cmp2026.push(isNaN(n26reg) ? null : n26reg);
+    cmp2025.push(isNaN(n25reg) ? null : n25reg);
+    cmpApp2026.push(isNaN(n26app) ? null : n26app);
+    cmpApp2025.push(isNaN(n25app) ? null : n25app);
   });
 
   return {
@@ -370,7 +377,7 @@ function processData(rows) {
     trendDates: sortedDates,
     trendVals: sortedDates.map(d => dailyMap[d]),
     cumul,
-    cmpLabels, cmp2026, cmp2025
+    cmpLabels, cmp2026, cmp2025, cmpApp2026, cmpApp2025
   };
 }
 
@@ -466,8 +473,13 @@ function renderDashboard(d) {
     }
   });
 
-  // 今年 vs 去年對比折線圖
-  new Chart(document.getElementById('chartTrend'), {
+  // 今年 vs 去年對比折線圖（可切換報名/報數）
+  const cmpChartData = {
+    reg: { data2026: d.cmp2026,    data2025: d.cmp2025,    label: '報名數' },
+    app: { data2026: d.cmpApp2026, data2025: d.cmpApp2025, label: '報數'   }
+  };
+
+  const trendChart = new Chart(document.getElementById('chartTrend'), {
     type: 'line',
     data: {
       labels: d.cmpLabels,
@@ -475,19 +487,15 @@ function renderDashboard(d) {
         {
           label: '2026 報名數',
           data: d.cmp2026,
-          borderColor: '#2b6cb0',
-          backgroundColor: 'rgba(43,108,176,0.08)',
-          borderWidth: 2.5, pointRadius: 3, tension: 0.3,
-          fill: false
+          borderColor: '#2b6cb0', backgroundColor: 'rgba(43,108,176,0.08)',
+          borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false
         },
         {
           label: '2025 報名數',
           data: d.cmp2025,
-          borderColor: '#ed8936',
-          backgroundColor: 'rgba(237,137,54,0.08)',
+          borderColor: '#ed8936', backgroundColor: 'rgba(237,137,54,0.08)',
           borderWidth: 2, pointRadius: 3, tension: 0.3,
-          borderDash: [5,4],
-          fill: false
+          borderDash: [5,4], fill: false
         }
       ]
     },
@@ -496,11 +504,11 @@ function renderDashboard(d) {
       plugins: {
         legend: { position:'bottom', labels:{ boxWidth:12 } },
         tooltip: {
-          mode: 'index', intersect: false,
+          mode:'index', intersect:false,
           callbacks: {
             afterBody: items => {
-              const i = items[0]?.dataIndex;
-              const v26 = d.cmp2026[i], v25 = d.cmp2025[i];
+              const v26 = items.find(i => i.dataset.label.includes('2026'))?.raw;
+              const v25 = items.find(i => i.dataset.label.includes('2025'))?.raw;
               if (v26 != null && v25 != null) {
                 const diff = v26 - v25;
                 return [`同期差異：${diff >= 0 ? '+' : ''}${diff} 件`];
@@ -511,11 +519,28 @@ function renderDashboard(d) {
         }
       },
       scales: {
-        x: { grid:{ display:false }, ticks:{ font:{ size:10 } } },
-        y: { grid:{ color:'#f0f4f8' }, title:{ display:true, text:'累計報名數' }, min: 0 }
+        x: { grid:{display:false}, ticks:{font:{size:10}} },
+        y: { grid:{color:'#f0f4f8'}, title:{display:true, text:'累計數'}, min:0 }
       }
     }
   });
+
+  // 切換按鈕函式（掛到 window 讓 onclick 可以呼叫）
+  window.switchCmp = function(type) {
+    const d2026 = cmpChartData[type].data2026;
+    const d2025 = cmpChartData[type].data2025;
+    const label  = cmpChartData[type].label;
+    trendChart.data.datasets[0].data  = d2026;
+    trendChart.data.datasets[0].label = `2026 ${label}`;
+    trendChart.data.datasets[1].data  = d2025;
+    trendChart.data.datasets[1].label = `2025 ${label}`;
+    trendChart.update();
+    // 按鈕樣式切換
+    document.getElementById('btnReg').style.background = type === 'reg' ? '#2b6cb0' : 'white';
+    document.getElementById('btnReg').style.color      = type === 'reg' ? 'white'   : '#2b6cb0';
+    document.getElementById('btnApp').style.background = type === 'app' ? '#2b6cb0' : 'white';
+    document.getElementById('btnApp').style.color      = type === 'app' ? 'white'   : '#2b6cb0';
+  };
 }
 
 function showError(msg) {
