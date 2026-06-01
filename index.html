@@ -282,7 +282,8 @@ function processData(rows) {
   const dailyMap = {};
   rows.forEach(r => {
     const raw = (dateKey ? r[dateKey] : '') || '';
-    const str = raw.toString().trim().replace(/^"|"$/g,'');
+    // 去掉前後引號、空白
+    const str = raw.toString().trim().replace(/^["']+|["']+$/g, '').trim();
     // 支援 2026-04-10、2026/4/10、2026/04/10 09:21 等格式
     const match = str.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
     if (match) {
