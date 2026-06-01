@@ -172,9 +172,9 @@
         <canvas id="chartCategory"></canvas>
       </div>
       <div class="card">
-        <h3>📈 每日申請件數趨勢</h3>
+        <h3>📈 2026 vs 2025 同期報名數對比</h3>
         <canvas id="chartTrend"></canvas>
-        <div class="note" id="trendNote">–</div>
+        <div class="note" id="trendNote">藍色實線：2026年累計報名數　橘色虛線：2025年同期累計報名數</div>
       </div>
     </div>
   </div>
@@ -341,6 +341,21 @@ function processData(rows) {
     return acc;
   }, []);
 
+  // 今年 vs 去年對比（L~Q 欄）
+  const cmpLabels = [], cmp2026 = [], cmp2025 = [];
+  rows.forEach(r => {
+    const dateVal = r['2026日期'] || '';
+    const v26 = r['2026報名'];
+    const v25 = r['2025報名'];
+    if (!dateVal) return;
+    const label = dateVal.toString().trim();
+    const n26 = parseFloat(v26);
+    const n25 = parseFloat(v25);
+    cmpLabels.push(label);
+    cmp2026.push(isNaN(n26) ? null : n26);
+    cmp2025.push(isNaN(n25) ? null : n25);
+  });
+
   return {
     total, newCount, oldCount, devCount, latestDate, todayCount, prevCount,
     awardLabels,
@@ -354,7 +369,8 @@ function processData(rows) {
     ownerNames, ownerNew, ownerOld, ownerTotals, ownerMap,
     trendDates: sortedDates,
     trendVals: sortedDates.map(d => dailyMap[d]),
-    cumul
+    cumul,
+    cmpLabels, cmp2026, cmp2025
   };
 }
 
@@ -450,23 +466,53 @@ function renderDashboard(d) {
     }
   });
 
-  // 趨勢圖
-  const trendShort = d.trendDates.map(dt => dt.substring(5).replace('-','/'));
+  // 今年 vs 去年對比折線圖
   new Chart(document.getElementById('chartTrend'), {
+    type: 'line',
     data: {
-      labels: trendShort,
+      labels: d.cmpLabels,
       datasets: [
-        { type:'bar',  label:'當日件數', data: d.trendVals, backgroundColor:'rgba(43,108,176,0.45)', borderRadius:3, yAxisID:'y' },
-        { type:'line', label:'累計件數', data: d.cumul, borderColor:'#e53e3e', backgroundColor:'transparent', borderWidth:2, pointRadius:2, tension:0.3, yAxisID:'y2' }
+        {
+          label: '2026 報名數',
+          data: d.cmp2026,
+          borderColor: '#2b6cb0',
+          backgroundColor: 'rgba(43,108,176,0.08)',
+          borderWidth: 2.5, pointRadius: 3, tension: 0.3,
+          fill: false
+        },
+        {
+          label: '2025 報名數',
+          data: d.cmp2025,
+          borderColor: '#ed8936',
+          backgroundColor: 'rgba(237,137,54,0.08)',
+          borderWidth: 2, pointRadius: 3, tension: 0.3,
+          borderDash: [5,4],
+          fill: false
+        }
       ]
     },
     options: {
-      responsive:true,
-      plugins:{ legend:{position:'bottom',labels:{boxWidth:12}}, tooltip:{mode:'index',intersect:false} },
-      scales:{
-        x:  { grid:{display:false}, ticks:{font:{size:10}} },
-        y:  { grid:{color:'#f0f4f8'}, title:{display:true,text:'當日'}, ticks:{stepSize:1}, min:0 },
-        y2: { position:'right', grid:{display:false}, title:{display:true,text:'累計'} }
+      responsive: true,
+      plugins: {
+        legend: { position:'bottom', labels:{ boxWidth:12 } },
+        tooltip: {
+          mode: 'index', intersect: false,
+          callbacks: {
+            afterBody: items => {
+              const i = items[0]?.dataIndex;
+              const v26 = d.cmp2026[i], v25 = d.cmp2025[i];
+              if (v26 != null && v25 != null) {
+                const diff = v26 - v25;
+                return [`同期差異：${diff >= 0 ? '+' : ''}${diff} 件`];
+              }
+              return [];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid:{ display:false }, ticks:{ font:{ size:10 } } },
+        y: { grid:{ color:'#f0f4f8' }, title:{ display:true, text:'累計報名數' }, min: 0 }
       }
     }
   });
