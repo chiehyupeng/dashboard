@@ -267,6 +267,10 @@ function normalizeAward(a) {
 function processData(rows) {
   // 過濾空行
   rows = rows.filter(r => r['案號'] || r['參賽獎別'] || r['來源']);
+  console.log('總行數:', rows.length);
+  console.log('第一筆欄位:', Object.keys(rows[0] || {}));
+  console.log('2026日期樣本:', rows.slice(0,3).map(r => r['2026日期']));
+  console.log('2026報名樣本:', rows.slice(0,3).map(r => r['2026報名']));
 
   const total = rows.length;
 
@@ -407,7 +411,7 @@ function renderDashboard(d) {
       indexAxis:'y', responsive:true,
       plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} },
       scales:{
-        x:{ stacked:true, grid:{color:'#f0f4f8'}, max: Math.max(...d.awardTotals) + 8 },
+        x:{ stacked:true, grid:{color:'#f0f4f8'}, max: (d.awardTotals.length ? Math.max(...d.awardTotals) : 10) + 8 },
         y:{ stacked:true, grid:{display:false} }
       },
       animation:{ onComplete: function(){ labelHBarSegments(this); labelHBarTotals(this, d.awardTotals); }}
@@ -445,7 +449,7 @@ function renderDashboard(d) {
       },
       scales:{
         x:{ stacked:true, grid:{display:false} },
-        y:{ stacked:true, grid:{color:'#f0f4f8'}, ticks:{stepSize:2}, max: Math.max(...d.ownerTotals) + 3 }
+        y:{ stacked:true, grid:{color:'#f0f4f8'}, ticks:{stepSize:2}, max: (d.ownerTotals.length ? Math.max(...d.ownerTotals) : 10) + 3 }
       },
       animation:{ onComplete: function(){ labelVBarSegments(this); labelVBarTotals(this, d.ownerTotals); }}
     }
@@ -465,7 +469,7 @@ function renderDashboard(d) {
       indexAxis:'y', responsive:true,
       plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} },
       scales:{
-        x:{ stacked:true, grid:{color:'#f0f4f8'}, ticks:{stepSize:2}, max: Math.max(...d.catTotals) + 4 },
+        x:{ stacked:true, grid:{color:'#f0f4f8'}, ticks:{stepSize:2}, max: (d.catTotals.length ? Math.max(...d.catTotals) : 10) + 4 },
         y:{ stacked:true, grid:{display:false}, ticks:{font:{size:11}} }
       },
       animation:{ onComplete: function(){ labelHBarSegments(this); labelHBarTotals(this, d.catTotals); }}
