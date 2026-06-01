@@ -282,10 +282,11 @@ function processData(rows) {
   const dailyMap = {};
   rows.forEach(r => {
     const raw = (dateKey ? r[dateKey] : '') || '';
-    const str = raw.toString().trim();
-    const match = str.match(/^(\d{4})[-\/](\d{2})[-\/](\d{2})/);
+    const str = raw.toString().trim().replace(/^"|"$/g,'');
+    // 支援 2026-04-10、2026/4/10、2026/04/10 09:21 等格式
+    const match = str.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
     if (match) {
-      const date = `${match[1]}-${match[2]}-${match[3]}`;
+      const date = `${match[1]}-${match[2].padStart(2,'0')}-${match[3].padStart(2,'0')}`;
       dailyMap[date] = (dailyMap[date] || 0) + 1;
     }
   });
