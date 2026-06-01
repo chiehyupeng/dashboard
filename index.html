@@ -275,7 +275,8 @@ function processData(rows) {
   const total = rows.length;
 
   // 每日申請（處理 BOM 字元，動態找申請日期欄位）
-  const dateKey = Object.keys(rows[0] || {}).find(k => k.replace(/[\ufeff"]/g,'').trim() === '申請日期') || '申請日期';
+  const dateKey = Object.keys(rows[0] || {}).find(k => k.replace(/[\ufeff"'\s]/g,'') === '申請日期') || '';
+  console.log('找到日期欄位:', JSON.stringify(dateKey));
   const dailyMap = {};
   rows.forEach(r => {
     const raw = r[dateKey] || '';
