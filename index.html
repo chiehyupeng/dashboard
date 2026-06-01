@@ -367,7 +367,8 @@ function renderDashboard(d) {
   document.getElementById('kpiNewPct').textContent = `實際件數 ${d.newCount} 件`;
   document.getElementById('kpiDev').textContent = (d.devCount/d.total*100).toFixed(1) + '%';
   document.getElementById('kpiDevPct').textContent = `實際件數 ${d.devCount} 件`;
-  document.getElementById('lastUpdated').innerHTML = `資料更新：${d.latestDate}<br>開啟時自動讀取最新資料`;
+  const displayDate = csvLastModified || new Date().toLocaleDateString('zh-TW', {year:'numeric', month:'2-digit', day:'2-digit'});
+  document.getElementById('lastUpdated').innerHTML = `資料更新：${displayDate}<br>開啟時自動讀取最新資料`;
   document.getElementById('trendNote').textContent = `資料範圍：${d.trendDates[0]} ～ ${d.latestDate}，累計 ${d.total} 件`;
 
   // 獎別圖
@@ -479,7 +480,18 @@ function showError(msg) {
 }
 
 // ── 讀取 CSV ──────────────────────────────
-Papa.parse(CSV_URL, {
+let csvLastModified = '';
+
+fetch(CSV_URL, { method: 'HEAD' })
+  .then(res => {
+    const d = res.headers.get('last-modified') || res.headers.get('date');
+    if (d) {
+      csvLastModified = new Date(d).toLocaleDateString('zh-TW', {year:'numeric', month:'2-digit', day:'2-digit'});
+    }
+  })
+  .catch(() => {})
+  .finally(() => {
+    Papa.parse(CSV_URL, {
   download: true,
   header: true,
   skipEmptyLines: true,
@@ -501,6 +513,7 @@ Papa.parse(CSV_URL, {
     showError(err.message || '網路錯誤，無法下載 CSV');
   }
 });
+  }); // finally
 </script>
 </body>
 </html>
